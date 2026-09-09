@@ -109,7 +109,11 @@ def generate_variable_formants_point_function(corpus_context, min_formants, max_
     formant_function = PraatAnalysisFunction(
         script,
         praat_path=corpus_context.config.praat_path,
-        arguments=[0.01, 0.025, min_formants, max_formants, max_freq],
+        arguments=[0.01075, # Padding on either side
+                   0.025, # Time step
+                   min_formants,
+                   max_formants,
+                   max_freq],
     )
 
     formant_function._function._output_parse_function = parse_multiple_formant_output

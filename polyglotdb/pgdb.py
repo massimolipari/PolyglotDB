@@ -12,6 +12,8 @@ import sys
 import requests
 from tqdm import tqdm
 
+from polyglotdb.databases.config import default_config
+
 NEO4J_VERSION = "2026.09.0"
 
 INFLUXDB_VERSION = "1.13.1"
@@ -19,20 +21,10 @@ INFLUXDB_VERSION = "1.13.1"
 
 def load_config():
     c = configparser.ConfigParser()
+    c.read_dict(default_config(DEFAULT_DATA_DIR))
     if os.path.exists(CONFIG_PATH):
         c.read(CONFIG_PATH)
     else:
-        c["Neo4j"] = {"http_port": 7474, "https_port": 7475, "bolt_port": 7687}
-        c["Neo4j_wrapper"] = {"max_heap": 4096}
-        c["InfluxDB"] = {
-            "http_port": 8086,
-            "udp_port": 8087,
-            "auth_enabled": "false",
-            "data_directory": os.path.join(DEFAULT_DATA_DIR, "influxdb", "data"),
-            "wal_directory": os.path.join(DEFAULT_DATA_DIR, "influxdb", "wal"),
-            "meta_directory": os.path.join(DEFAULT_DATA_DIR, "influxdb", "meta"),
-        }
-        c["Data"] = {"directory": DEFAULT_DATA_DIR}
         global CONFIG_CHANGED
         CONFIG_CHANGED = True
     return c

@@ -156,8 +156,15 @@ def configure_neo4j(data_directory):
     with open(neo4j_template_path, "r") as f:
         template = f.read()
 
+    try:
+        max_heap = CONFIG.getint("Neo4j_wrapper", "max_heap")
+    except ValueError:
+        sys.exit(
+            "max_heap in the [Neo4j_wrapper] section of config.ini must be a whole number "
+            "of megabytes."
+        )
     with open(neo4j_conf_path, "w") as f:
-        f.write(template.format(**CONFIG["Neo4j"]))
+        f.write(template.format(**CONFIG["Neo4j"], max_heap=max_heap))
 
 
 def make_influxdb_safe(string):
@@ -204,6 +211,30 @@ def uninstall():
     except FileNotFoundError:
         pass
     print("Successfully uninstalled Neo4j and InfluxDB.")
+
+
+def configure():
+    """Rewrite neo4j.conf and influxdb.conf from config.ini, keeping all data."""
+    data_directory = CONFIG["Data"]["directory"]
+    installed = os.path.exists(CONFIG_PATH) and all(
+        os.path.isdir(os.path.join(data_directory, name)) for name in ("neo4j", "influxdb")
+    )
+    if not installed:
+        print("No existing installation found, run `pgdb install` first.")
+        sys.exit(1)
+    # The templates match the current versions, so don't write them into an older install.
+    check_versions()
+    configure_neo4j(data_directory)
+    configure_influxdb(data_directory)
+    neo4j = CONFIG["Neo4j"]
+    influxdb = CONFIG["InfluxDB"]
+    print(f"Updated the Neo4j and InfluxDB configuration from {CONFIG_PATH}:")
+    print(
+        f"  Neo4j: HTTP {neo4j['http_port']}, HTTPS {neo4j['https_port']}, "
+        f"Bolt {neo4j['bolt_port']}, heap up to {CONFIG['Neo4j_wrapper']['max_heap']} MB"
+    )
+    print(f"  InfluxDB: HTTP {influxdb['http_port']}, backup {influxdb['backup_port']}")
+    print("Run `pgdb stop` and then `pgdb start` for the changes to take effect.")
 
 
 def start():
@@ -295,6 +326,11 @@ def main():
     remove_parser = subparsers.add_parser("uninstall")
     remove_parser.set_defaults(which="uninstall")
 
+    configure_parser = subparsers.add_parser(
+        "configure", help="Apply changes to config.ini without reinstalling"
+    )
+    configure_parser.set_defaults(which="configure")
+
     args = parser.parse_args()
     if not hasattr(args, "which") or args.which == "help":
         parser.print_usage()
@@ -341,6 +377,8 @@ def main():
         with open(version_path, "w", encoding="utf8") as f:
             json.dump({"neo4j": NEO4J_VERSION, "influxdb": INFLUXDB_VERSION}, f)
         print("Successfully installed Neo4j and InfluxDB.")
+    elif args.which == "configure":
+        configure()
     elif args.which == "uninstall":
         stop()
         uninstall()
